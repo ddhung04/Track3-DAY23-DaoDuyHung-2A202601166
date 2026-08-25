@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from time import perf_counter
+from typing import Annotated, cast
 
 import typer
 import yaml
+from langchain_core.runnables import RunnableConfig
 
 from .graph import build_graph
 from .metrics import MetricsReport, metric_from_state, summarize_metrics, write_metrics
@@ -30,12 +32,25 @@ def run_scenarios(
     checkpointer = build_checkpointer(cfg.get("checkpointer", "memory"), cfg.get("database_url"))
     graph = build_graph(checkpointer=checkpointer)
     metrics = []
+    state_history_verified = []
     for scenario in scenarios:
         state = initial_state(scenario)
-        run_config = {"configurable": {"thread_id": state["thread_id"]}}
+        run_config = cast(RunnableConfig, {"configurable": {"thread_id": state["thread_id"]}})
+        started_at = perf_counter()
         final_state = graph.invoke(state, config=run_config)
-        metrics.append(metric_from_state(final_state, scenario.expected_route.value, scenario.requires_approval))
+        metric = metric_from_state(
+            final_state,
+            scenario.expected_route.value,
+            scenario.requires_approval,
+        )
+        metric.latency_ms = round((perf_counter() - started_at) * 1000)
+        metrics.append(metric)
+        try:
+            state_history_verified.append(bool(list(graph.get_state_history(run_config))))
+        except (AttributeError, TypeError, ValueError):
+            state_history_verified.append(False)
     report = summarize_metrics(metrics)
+    report.resume_success = bool(state_history_verified) and all(state_history_verified)
     write_metrics(report, output)
     if cfg.get("report_path"):
         write_report(report, cfg["report_path"])

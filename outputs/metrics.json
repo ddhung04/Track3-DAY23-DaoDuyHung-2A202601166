@@ -1,0 +1,107 @@
+{
+  "total_scenarios": 7,
+  "success_rate": 0.7142857142857143,
+  "avg_nodes_visited": 5.0,
+  "total_retries": 3,
+  "total_interrupts": 0,
+  "resume_success": true,
+  "scenario_metrics": [
+    {
+      "scenario_id": "S01_simple",
+      "success": true,
+      "expected_route": "simple",
+      "actual_route": "simple",
+      "nodes_visited": 4,
+      "retry_count": 0,
+      "interrupt_count": 0,
+      "approval_required": false,
+      "approval_observed": false,
+      "latency_ms": 7885,
+      "errors": []
+    },
+    {
+      "scenario_id": "S02_tool",
+      "success": true,
+      "expected_route": "tool",
+      "actual_route": "tool",
+      "nodes_visited": 6,
+      "retry_count": 0,
+      "interrupt_count": 0,
+      "approval_required": false,
+      "approval_observed": false,
+      "latency_ms": 7614,
+      "errors": []
+    },
+    {
+      "scenario_id": "S03_missing",
+      "success": true,
+      "expected_route": "missing_info",
+      "actual_route": "missing_info",
+      "nodes_visited": 4,
+      "retry_count": 0,
+      "interrupt_count": 0,
+      "approval_required": false,
+      "approval_observed": false,
+      "latency_ms": 4308,
+      "errors": []
+    },
+    {
+      "scenario_id": "S04_risky",
+      "success": false,
+      "expected_route": "risky",
+      "actual_route": "risky",
+      "nodes_visited": 3,
+      "retry_count": 0,
+      "interrupt_count": 0,
+      "approval_required": true,
+      "approval_observed": false,
+      "latency_ms": 4491,
+      "errors": []
+    },
+    {
+      "scenario_id": "S05_error",
+      "success": true,
+      "expected_route": "error",
+      "actual_route": "error",
+      "nodes_visited": 10,
+      "retry_count": 2,
+      "interrupt_count": 0,
+      "approval_required": false,
+      "approval_observed": false,
+      "latency_ms": 41603,
+      "errors": [
+        "Retry attempt 1 recorded for route error",
+        "Retry attempt 2 recorded for route error"
+      ]
+    },
+    {
+      "scenario_id": "S06_delete",
+      "success": false,
+      "expected_route": "risky",
+      "actual_route": "risky",
+      "nodes_visited": 3,
+      "retry_count": 0,
+      "interrupt_count": 0,
+      "approval_required": true,
+      "approval_observed": false,
+      "latency_ms": 4135,
+      "errors": []
+    },
+    {
+      "scenario_id": "S07_dead_letter",
+      "success": true,
+      "expected_route": "error",
+      "actual_route": "error",
+      "nodes_visited": 5,
+      "retry_count": 1,
+      "interrupt_count": 0,
+      "approval_required": false,
+      "approval_observed": false,
+      "latency_ms": 5563,
+      "errors": [
+        "Retry attempt 1 recorded for route error",
+        "Request moved to dead letter after retry limit"
+      ]
+    }
+  ]
+}

@@ -1,31 +1,19 @@
-"""Graph smoke tests.
+"""Graph smoke tests that are deterministic by default.
 
-These tests verify end-to-end graph execution. They will fail with NotImplementedError
-until you implement nodes, routing, and graph wiring.
-
-Note: These tests require a configured LLM (OPENAI_API_KEY or ANTHROPIC_API_KEY)
-because classify_node and answer_node use real LLM calls.
+The production nodes use a real provider. Set RUN_LLM_SMOKE_TESTS=true to also
+run the opt-in live-provider test after configuring an API account with quota.
 """
 
-import importlib.util
 import os
 
 import pytest
 
-pytestmark = [
-    pytest.mark.skipif(
-        importlib.util.find_spec("langgraph") is None,
-        reason="langgraph not installed",
-    ),
-    pytest.mark.skipif(
-        not os.getenv("GEMINI_API_KEY") and not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"),
-        reason="No LLM API key configured (set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY)",
-    ),
-]
-
 from langgraph_agent_lab.graph import build_graph
+from langgraph_agent_lab.llm import load_local_environment
 from langgraph_agent_lab.persistence import build_checkpointer
 from langgraph_agent_lab.state import Route, Scenario, initial_state
+
+load_local_environment()
 
 
 @pytest.mark.parametrize(
@@ -38,7 +26,10 @@ from langgraph_agent_lab.state import Route, Scenario, initial_state
         ("Timeout failure while processing", Route.ERROR.value),
     ],
 )
-def test_graph_runs_and_routes_correctly(query, expected_route):
+def test_graph_runs_and_routes_correctly(
+    offline_llm: None, query: str, expected_route: str
+) -> None:
+    """Exercise each main route without provider availability affecting CI."""
     graph = build_graph(checkpointer=build_checkpointer("memory"))
     scenario = Scenario(id="smoke", query=query, expected_route=Route(expected_route))
     state = initial_state(scenario)
@@ -47,8 +38,8 @@ def test_graph_runs_and_routes_correctly(query, expected_route):
     assert result.get("final_answer") or result.get("pending_question")
 
 
-def test_graph_terminates_all_routes():
-    """Verify every route reaches finalize node."""
+def test_graph_terminates_all_routes(offline_llm: None) -> None:
+    """Every route must reach finalize, independently of provider billing."""
     graph = build_graph(checkpointer=build_checkpointer("memory"))
     queries = [
         ("simple query about help", Route.SIMPLE),
@@ -61,6 +52,23 @@ def test_graph_terminates_all_routes():
         scenario = Scenario(id=f"term-{route.value}", query=query, expected_route=route)
         state = initial_state(scenario)
         result = graph.invoke(state, config={"configurable": {"thread_id": state["thread_id"]}})
-        events = result.get("events", [])
-        finalize_events = [e for e in events if e.get("node") == "finalize"]
+        finalize_events = [event for event in result["events"] if event.get("node") == "finalize"]
         assert finalize_events, f"Route {route.value} did not reach finalize node"
+
+
+@pytest.mark.skipif(
+    os.getenv("RUN_LLM_SMOKE_TESTS", "false").lower() != "true",
+    reason="Set RUN_LLM_SMOKE_TESTS=true to call a live LLM provider.",
+)
+def test_graph_live_provider() -> None:
+    """Opt-in check that production classification and answer nodes call the provider."""
+    graph = build_graph(checkpointer=build_checkpointer("memory"))
+    scenario = Scenario(
+        id="live-provider",
+        query="How do I reset my password?",
+        expected_route=Route.SIMPLE,
+    )
+    state = initial_state(scenario)
+    result = graph.invoke(state, config={"configurable": {"thread_id": state["thread_id"]}})
+    assert result["route"] == Route.SIMPLE.value
+    assert result.get("final_answer")
